@@ -1,0 +1,198 @@
+===============================================================================
+  MATRIX.BAS -- MEMORY MAP
+  Atari 130XE / 64K addressable, GRAPHICS 17 (full-screen GR.1, no text window)
+  Addresses below PMGBASE/FONTADR/FADETAB/FDA are EXAMPLES for a machine that
+  boots with PEEK(106)=160 ($A0), the typical 130XE default. Every value in
+  this map is computed at init time from whatever PEEK(106) actually is.
+===============================================================================
+
+  HIGH MEMORY
+  ^
+  |   +---------------------------------------------------------------+ $FFFF
+  |   |  OS ROM  (CIO, floating point pkg, interrupt handlers, ...)   |
+  |   |  untouched by this program -- except for a handful of OS      |
+  |   |  shadow registers in low RAM, see "OS / HARDWARE CELLS" below |
+  |   +---------------------------------------------------------------+
+  |   |                                                               |
+  |   |   ... RAM here is free / OS-managed on a stock machine ...    |
+  |   |                                                               |
+  |   +===================  RAMTOP-CARVED REGION  ====================+ <- PEEK(106) BEFORE init
+  |   |  Pages 152-159   PM GRAPHICS BUFFER      2048 bytes  (8 pages)|
+  |   |  $9800-$9FFF     PMGBASE = 38912                              |
+  |   |  +--------------------------------------------------------+   |
+  |   |  | offset    0-1023  missile base area (reserved by the   |   |
+  |   |  |                   single-line PMG hardware map;        |   |
+  |   |  |                   unused -- this program has no        |   |
+  |   |  |                   missiles)                            |   |
+  |   |  | offset 1024-1279  PLAYER 0  (256 bytes, 1/scanline)    |   |
+  |   |  | offset 1280-1535  PLAYER 1                             |   |
+  |   |  | offset 1536-1791  PLAYER 2                             |   |
+  |   |  | offset 1792-2047  PLAYER 3                             |   |
+  |   |  +--------------------------------------------------------+   |
+  |   |                                                               |
+  |   |  Pages 144-151   RAM FONT                 2048 bytes (8 pages)|
+  |   |  $9000-$97FF     FONTADR = 36864                              |
+  |   |  +--------------------------------------------------------+   |
+  |   |  | offset    0-7     char slot  0  "@"  (from ROM, NOT    |   |
+  |   |  |                   katakana -- see note below)          |   |
+  |   |  | offset    8-223   char slots  1-27  KATAKANA GLYPHS    |   |
+  |   |  | offset  224-511   char slots 28-63  remaining ROM set  |   |
+  |   |  |                   (slots 0-63 are ALL bit-flipped --   |   |
+  |   |  |                   GR.1/17 needs mirrored bit order)    |   |
+  |   |  | offset  512-1023  char slots 64-127 ROM set, NOT       |   |
+  |   |  |                   bit-flipped (unused by GR.17, just   |   |
+  |   |  |                   along for the ride from the 1024-    |   |
+  |   |  |                   byte whole-ROM-font COPY)            |   |
+  |   |  | offset 1024-2047  unused padding (2K reserved, only    |   |
+  |   |  |                   1K of font actually needed)          |   |
+  |   |  +--------------------------------------------------------+   |
+  |   |                                                               |
+  |   |  Pages 142-143   FADETAB                   512 bytes (2 pages)|
+  |   |  $8E00-$8FFF     FADETAB = 36352                              |
+  |   |  +--------------------------------------------------------+   |
+  |   |  | offset    0-479   one fade-level byte per screen cell  |   |
+  |   |  |                   (20 cols x 24 rows, mirrors SCRN)    |   |
+  |   |  | offset  480-511   unused (32 bytes spare)              |   |
+  |   |  +--------------------------------------------------------+   |
+  |   |                                                               |
+  |   |  Page  141       FADE.BIN  (ML routine)   256 bytes (1 page)  |
+  |   |  $8D00           FDA = 36096                                  |
+  |   |  +--------------------------------------------------------+   |
+  |   |  | offset    0-98    FADE.BIN code (99 bytes).            |   |
+  |   |  | offset   99-255   unused / free (157 bytes)            |   |
+  |   |  +--------------------------------------------------------+   |
+  |   +===============================================================+ <- PEEK(106) AFTER init
+  |   |                                                               |
+  |   |  GR.17 SCREEN MEMORY     480 bytes (20 cols x 24 rows)        |
+  |   |  address = PEEK(88)+PEEK(89)*256 = SCRN (OS-placed; exact     |
+  |   |  location depends on what else is below RAMTOP, read back     |
+  |   |  at runtime rather than computed by this program)             |
+  |   |                                                               |
+  |   |  Display list (tiny, OS-built for GRAPHICS 17)                |
+  |   |                                                               |
+  |   |  BASIC program text, variable table, string/array space,      |
+  |   |  runtime stack, etc. -- ordinary free RAM, unrelated to this  |
+  |   |  program's custom reservations                                |
+  |   +---------------------------------------------------------------+
+  |   |                                                               |
+  |   |   Page 7   $0700-$07FF  (1792-2047)   see detail map below    |
+  |   |   Page 6   $0600-$06FF  (1536-1791)   see detail map below    |
+  |   |                                                               |
+  |   +---------------------------------------------------------------+
+  |   |  Page 2-5  OS RAM vectors / CIO buffers / floating point ...  |
+  |   +---------------------------------------------------------------+
+  |   |  ZERO PAGE  $0000-$00FF  (0-255)        see detail map below  |
+  v   +---------------------------------------------------------------+ $0000
+  LOW MEMORY
+
+===============================================================================
+  PAGE 6  ($0600-$06FF)  --  UTIL.BIN  (COPY / FLIP / MEMSET)
+===============================================================================
+
+   $0600 +------------------------------------------------+
+    1536 | COPY     68 bytes   MEMCOPY  = $0600 (1536)    |
+         | X=USR(MEMCOPY,SRC,DST,COUNT)                   |
+   $0643 +------------------------------------------------+
+    1604 | FLIP     84 bytes   BYTEFLIP = $0644 (1604)    |
+         | X=USR(BYTEFLIP,SRC,COUNT) -- bit-reverse bytes |
+   $0697 +------------------------------------------------+
+    1688 | MEMSET   58 bytes   MEMSET   = $0698 (1688)    |
+         | X=USR(MEMSET,SRC,COUNT,VAL)                    |
+   $06D1 +------------------------------------------------+
+    1746 | free                     30 bytes              |
+   $06EF +------------------------------------------------+
+    1776 | count scratch ($06F0/$06F1)   2 bytes          |
+         | shared by all three routines, runtime-only     |
+   $06F1 +------------------------------------------------+
+    1778 | free                     14 bytes              |
+   $06FF +------------------------------------------------+
+
+===============================================================================
+  PAGE 7  ($0700-$07FF)  --  RAIN.BIN  (deferred VBI) + its data tables
+===============================================================================
+
+   $0700 +--------------------------------------------+
+    1792 | VBI code                108 bytes          |
+         | (includes COLTAB lookup table in its last  |
+         |  8 bytes, $0764-$076B -- column-reset fix) |
+   $076B +--------------------------------------------+
+    1900 | free                     52 bytes          |
+   $079F +--------------------------------------------+
+    1952 | SHAPE[0..3]              32 bytes          |
+         | 8 bytes/sprite -- BASIC writes, VBI reads  |
+   $07BF +--------------------------------------------+
+    1984 | free                     40 bytes          |
+   $07E7 +--------------------------------------------+
+    2024 | ZONE_BASE[0..3]           4 bytes          |
+         | leftmost HPOSP of each sprite's zone       |
+   $07EB +--------------------------------------------+
+    2028 | free                      4 bytes          |
+   $07EF +--------------------------------------------+
+    2032 | XPOS[0..3]                4 bytes          |
+         | current HPOSP per sprite, VBI-updated      |
+   $07F3 +--------------------------------------------+
+    2036 | YPOS[0..3]                4 bytes          |
+         | current scanline per sprite, VBI-updated   |
+   $07F7 +--------------------------------------------+
+    2040 | free                      8 bytes          |
+   $07FF +--------------------------------------------+
+
+===============================================================================
+  ZERO PAGE  ($0000-$00FF)  --  who owns what
+===============================================================================
+
+   $00-$7F   OS variables (CIO, floating point, SAVMSC, ATRACT, ...).
+             A few individual cells are POKEd directly by matrix.bas --
+             see the OS/hardware table below. (UTIL.BIN's and FADE.BIN's
+             scratch pointers live at $CB-$D1, further down this page --
+             see that entry for why they're safe there.)
+
+   $CB/$CC   FADETAB pointer in FADE.BIN; source/dest pointer in COPY,
+             FLIP, MEMSET (util.asm). Shared on purpose -- see note below.
+   $CD/$CE   SCRN pointer in FADE.BIN; dest pointer (COPY) / bit-reverse
+             scratch byte (FLIP) in util.asm. Also shared.
+   $CF       FSTEPZ -- FADE.BIN's fade-step argument, read once per call.
+   $D0/$D1   CNT -- FADE.BIN's 16-bit countdown (480, the fixed screen
+             size), so one loop can walk the whole table instead of the
+             256-byte-max an 8-bit X register would force.
+   $D4-$D9   FR0 -- BASIC's USR() return register. Every ML routine in
+             this project writes its return value here and nowhere else
+             in zero page.
+
+   UTIL.BIN AND FADE.BIN SHARE $CB-$CE WITHOUT CONFLICT, 
+   THEY NEVER CALL EACH OTHER
+
+   $80-$FF   BASIC Workspace
+               $80-$CA   BASIC's OWN runtime workspace 
+               $CB-$D1   Specifically left unused BY BASIC ITSELF (spare
+                         space inside the cartridge's own memory map) --
+                         safe scratch, which is why COPY/FLIP/MEMSET and
+                         now FADE.BIN all use it.
+               $D2-$FF   The floating-point package's work area (FR0 at
+                         $D4-$D9 included) -- only "live" DURING an active
+                         FP calculation, not between statements, so it's
+                         safe for a synchronous USR() call to borrow too.
+
+===============================================================================
+  OS / HARDWARE CELLS THIS PROGRAM POKES OR PEEKS DIRECTLY
+===============================================================================
+
+   decimal   hex     name       what this program does with it
+   -------   -----   --------   ------------------------------------------
+      77     $4D     ATRACT     POKE 0 every pass -- suppresses the OS
+                                 "screen saver" color-cycling permanently
+      88/89  $58/59  SAVMSC     PEEK to find GRAPHICS 17's screen address
+     106     $6A     RAMTOP     lowered 4x at init (PM/font/fadetab/FDA),
+                                 restored on clean exit
+     548/549 $224/5  VVBLKD     deferred-VBI vector -- installed to point
+                                 at RAIN.BIN, restored on clean exit
+     559     $22F    DMACTL     playfield width + single-line PM DMA
+     623     $26F    GPRIOR     PRIOR shadow -- sprites float over playfield
+     704-707 $2C0-3  PCOLR0-3   sprite colors (bright white)
+     756     $2F4    CHBAS      font base -- switched to the RAM font,
+                                 restored on clean exit
+     764     $2FC    CH         PEEKed every pass to detect a keypress
+   53248-51  $D000-3 HPOSP0-3   sprite horizontal position (hardware regs)
+   53256-59  $D008-B SIZEP0-3   sprite width (normal)
+   53277     $D01B   GRACTL     player/missile DMA enable
+   54279     $D407   PMBASE     player/missile memory base page
