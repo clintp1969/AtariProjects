@@ -68,6 +68,8 @@ RANDOM    = $D20A
 BOTTOM    = 232
 TOP       = 16
 
+    opt h-              ; suppress MADS's default Atari DOS binary header --
+                         ; loaded via BGET as raw bytes, not the DOS loader
     ORG $0700
 
 VBI_START:              ; $0700
@@ -148,3 +150,5 @@ DRW_INST:               ; $0750
 
 COLTAB:                 ; $0764, 8 bytes
     .BYTE 0,1,2,3,4,0,1,2
+
+; end of code+table: $076C  (108 bytes total)

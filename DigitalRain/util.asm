@@ -47,6 +47,11 @@
 ; 16-bit decrement: SEC / SBC #1 (low) / SBC #0 (high, borrow only).
 ; =============================================================================
 
+    opt h-              ; suppress MADS's default Atari DOS binary header --
+                         ; this file is loaded via BGET as raw bytes, not the
+                         ; DOS L/BLOAD loader, so no $FFFF+start+end header
+                         ; belongs here (it would shift every byte offset
+                         ; this project's documentation depends on)
     ORG $0600
 
 COPY_START:             ; $0600
@@ -115,7 +120,10 @@ COPY_DONE:              ; $0643
 ;
 ; ALGORITHM — unrolled 8x per byte:
 ;   LSR $CD   shift lowest remaining input bit into carry
-;   ROL A     rotate carry into MSB of accumulator
+;   ROL       rotate carry into MSB of accumulator (bare ROL = accumulator
+;             mode; MADS wants no operand at all here, not "ROL A" —
+;             omitting it is what selects accumulator mode on this
+;             assembler, unlike some others that require an explicit A)
 ; After 8 pairs: A holds the mirror image of the original byte.
 ;
 ; Uses same Y=0 + INC pointer pattern as COPY for 16-bit COUNT support.
@@ -147,14 +155,22 @@ FLIP_LOOP:              ; $0655
     STA $CD             ; park in ZP scratch
     LDA #0              ; clear result accumulator
 
-    LSR $CD : ROL A     ; bit 7 of input -> bit 0 of result (and up)
-    LSR $CD : ROL A
-    LSR $CD : ROL A
-    LSR $CD : ROL A
-    LSR $CD : ROL A
-    LSR $CD : ROL A
-    LSR $CD : ROL A
-    LSR $CD : ROL A     ; bit 0 of input -> bit 7 of result
+    LSR $CD             ; bit 7 of input -> bit 0 of result (and up)
+    ROL
+    LSR $CD
+    ROL
+    LSR $CD
+    ROL
+    LSR $CD
+    ROL
+    LSR $CD
+    ROL
+    LSR $CD
+    ROL
+    LSR $CD
+    ROL
+    LSR $CD             ; bit 0 of input -> bit 7 of result
+    ROL
 
     STA ($CB),Y         ; write reversed byte back in place
 

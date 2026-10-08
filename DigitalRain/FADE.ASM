@@ -30,6 +30,8 @@ FSTEPZ = $CF
 CNT    = $D0            ; /D1
 FR0    = $D4
 
+    opt h-              ; suppress MADS's default Atari DOS binary header --
+                         ; loaded via BGET as raw bytes, not the DOS loader
     ORG $0000             ; position-independent; loaded wherever FDA points
 
 FADE:
